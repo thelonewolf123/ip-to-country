@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import geoip from 'geoip-country'
+import lookup from 'country-code-lookup'
 
 const app = new Hono()
 
@@ -25,9 +26,12 @@ app.get('/lookup/:ip', (c) => {
             )
         }
 
+        const countryInfo = lookup.byIso(geo.country)
+
         return c.json({
             ip,
             country: geo.country,
+            countryName: countryInfo?.country || 'Unknown',
             success: true
         })
     } catch (error) {
@@ -55,13 +59,20 @@ app.post('/lookup/batch', async (c) => {
             )
         }
 
-        const results: Record<string, { country?: string; error?: string }> = {}
+        const results: Record<
+            string,
+            { country?: string; countryName?: string; error?: string }
+        > = {}
 
         body.ips.forEach((ip: string) => {
             try {
                 const geo = geoip.lookup(ip)
                 if (geo) {
-                    results[ip] = { country: geo.country }
+                    const countryInfo = lookup.byIso(geo.country)
+                    results[ip] = {
+                        country: geo.country,
+                        countryName: countryInfo?.country || 'Unknown'
+                    }
                 } else {
                     results[ip] = { error: 'Country not found' }
                 }
