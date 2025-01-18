@@ -64,15 +64,20 @@ app.post('/lookup/batch', async (c) => {
             { country?: string; countryName?: string; error?: string }
         > = {}
 
+        const analytics: Record<string, number> = {}
+
         body.ips.forEach((ip: string) => {
             try {
                 const geo = geoip.lookup(ip)
                 if (geo) {
                     const countryInfo = lookup.byIso(geo.country)
+                    const countryName = countryInfo?.country || 'Unknown'
                     results[ip] = {
                         country: geo.country,
-                        countryName: countryInfo?.country || 'Unknown'
+                        countryName
                     }
+                    // Update analytics counter
+                    analytics[countryName] = (analytics[countryName] || 0) + 1
                 } else {
                     results[ip] = { error: 'Country not found' }
                 }
@@ -81,8 +86,17 @@ app.post('/lookup/batch', async (c) => {
             }
         })
 
+        // Convert analytics to required format
+        const analyticsArray = Object.entries(analytics).map(
+            ([country, count]) => ({
+                x: country,
+                y: count
+            })
+        )
+
         return c.json({
             results,
+            analytics: analyticsArray,
             success: true
         })
     } catch (error) {
